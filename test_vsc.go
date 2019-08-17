@@ -44,6 +44,11 @@ func main() {
 // 	}
 // 	fmt.Println("status", db.Stats().OpenConnections)
 // }
+type UserSend struct {
+	First_name  string `json:"first_name"`
+	Last_name   string `json:"last_name"`
+	Middle_name string `json:"middle_name"`
+}
 
 func mainPage(w http.ResponseWriter, r *http.Request) { // Ответ пишем в w(Writer). Стадартный набор для обработки http
 	//decoder := json.NewDecoder(r.Body)
@@ -58,7 +63,12 @@ func mainPage(w http.ResponseWriter, r *http.Request) { // Ответ пишем
 	//w.Write(js)
 	r.ParseForm()
 	var method = strings.Split(r.URL.Path, "/")
-
+	//=========================
+	//correctTourment(json) - имененяет данные турнира, удаляет участников меняет время
+	//chengeStatus(userid int, status int) - метод назачения модератора
+	//takeMessage() - получение увведомления
+	//=========================
+	//add comments
 	switch method[1] {
 	case "addDb":
 		fmt.Fprintf(w, "Added")
@@ -81,26 +91,57 @@ func mainPage(w http.ResponseWriter, r *http.Request) { // Ответ пишем
 
 		} else {
 			u := FindUser(index)
-			users := &User{u.id, u.icon, u.first_name, u.last_name, u.middle_name, u.login, u.password, u.status, u.keyInTime, u.score, u.listIdOfTourment, u.invites}
-			//users := &User{124, 0, "dueudeu", "rfrfrfr", "rfnrfrfb", "frfrfr", "frfrfrfr", 0, "rfrfdw", 1234, "r vjr vrj", "4vvrvrr"}
+			users := &User{u.Id, u.Icon, u.First_name, u.Last_name, u.Middle_name, u.Login, u.Password, u.Status, u.KeyInTime, u.Score, u.ListIdOfTourment, u.Invites}
 			js, _ := json.Marshal(users)
 			fmt.Fprintf(w, string(js))
-			//fmt.Fprintf(w, string(u.id))
-			//fmt.Fprintf(w, string(u.id), "   ", string(u.login))
-			//fmt.Fprintf(w, []byte(js))
-			//fmt.Println(users)
-			//w.Write(js)
+			fmt.Println(string(js))
 		}
-	case "findFNLN":
-		ans := FindUserFNLN(r.Form.Get("firstName"), r.Form.Get("lastName"))
-		fmt.Println(ans)
+	case "auntification":
+		ans := FindUserFNLN(r.Form.Get("login"), r.Form.Get("password"))
+		js, _ := json.Marshal(ans)
+		fmt.Fprintf(w, string(js))
+	case "addDbTourment":
+		minRating, _ := strconv.Atoi(r.Form.Get("minRating"))
+		AddDbTourment(r.Form.Get("name"), r.Form.Get("date"), minRating, r.Form.Get("fullname"))
+	case "addUsersInTourment":
+		idUser, _ := strconv.Atoi(r.Form.Get("idUser"))
+		idTourment, _ := strconv.Atoi(r.Form.Get("idTourment"))
+		str := AddUserInTourment(idUser, idTourment)
+		fmt.Fprintf(w, str)
+	case "help":
+		HelpList := []map[string]interface{}{Help()}
+		js, err := json.Marshal(HelpList)
+		if err != nil {
+			fmt.Println("Error in 'help'")
+		}
+		fmt.Fprintf(w, string(js))
+	case "getAllMembersTourment":
+		tourmentId, _ := strconv.Atoi(r.Form.Get("tourmentId"))
+		js, _ := json.Marshal(getAllMembersTourment(tourmentId))
+		fmt.Fprintf(w, string(js))
+	case "deleteUserFromTourment":
+		idUser, _ := strconv.Atoi(r.Form.Get("idUser"))
+		idTourment, _ := strconv.Atoi(r.Form.Get("idTourment"))
+		str := DeleteUserFromTourment(idUser, idTourment)
+		fmt.Fprintf(w, str)
+	case "changeInfoInUser":
+		idUser, _ := strconv.Atoi(r.Form.Get("id"))
+		icon, _ := strconv.Atoi(r.Form.Get("icon"))
+		ChangeInfoInUser(idUser, r.Form.Get("firstName"), icon, r.Form.Get("lastName"), r.Form.Get("middleName"), r.Form.Get("login"), r.Form.Get("password"), r.Form.Get("status"))
+	case "changeInfoInTorument":
+		idTourment, _ := strconv.Atoi(r.Form.Get("id"))
+		minRating, _ := strconv.Atoi(r.Form.Get("minRating"))
+		ChangeInfoInTorument(idTourment, r.Form.Get("name"), r.Form.Get("date"), minRating, r.Form.Get("fullName"))
+	case "deleteTourments":
+		idTourment, _ := strconv.Atoi(r.Form.Get("id"))
+		DeleteTourments(idTourment)
 	}
 
-	for k, v := range r.Form {
-		fmt.Println("key:", k)
-		fmt.Println("val:", strings.Join(v, ""))
-		fmt.Println("---------------------")
-	}
+	// for k, v := range r.Form {
+	// 	fmt.Println("key:", k)
+	// 	fmt.Println("val:", strings.Join(v, ""))
+	// 	fmt.Println("---------------------")
+	// }
 
 }
 

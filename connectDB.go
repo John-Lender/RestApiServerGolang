@@ -7,34 +7,44 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
+	"strings"
+	_ "strings"
 )
 
 type User struct {
-	id               int    `json:"id"`
-	icon             int    `json:"icon"`
-	first_name       string `json:"first_name"`
-	last_name        string `json:"last_name"`
-	middle_name      string `json:"middle_name"`
-	login            string `json:"login"`
-	password         string `json:"password"`
-	status           int    `json:"status"`
-	keyInTime        string `json:"keyintime"`
-	score            int    `json:"score"`
-	listIdOfTourment string `json:"listIdOfTourment"`
-	invites          string `json:"invites"`
+	Id               int    `json:"id"`
+	Icon             int    `json:"icon"`
+	First_name       string `json:"first_name"`
+	Last_name        string `json:"last_name"`
+	Middle_name      string `json:"middle_name"`
+	Login            string `json:"login"`
+	Password         string `json:"password"`
+	Status           int    `json:"status"`
+	KeyInTime        string `json:"keyintime"`
+	Score            int    `json:"score"`
+	ListIdOfTourment string `json:"listIdOfTourment"`
+	Invites          string `json:"invites"`
+}
+
+type Tourments struct {
+	ID            int    `json:"id"`
+	ListOfMembers string `json:"listOfMembers"`
+	Name          string `json:"name"`
+	Date          string `json:"date"`
+	MinRating     int    `json:"minRating"`
+	FullName      string `json:"fullName"`
+	Result        string
+}
+type ListOfMembersList struct {
+	UsersId []int `json:"ListOfUsersId"`
+}
+type ListOfTourments struct {
+	Tourments []int `json"tourmentsId"`
 }
 
 var infoDb = InfoAboutdb()
 var db, errDb = sql.Open("mysql", infoDb)
-
-// func ConnectDB()  {
-
-// }
-// func createJson() {
-
-// 	js, _ := json.Marshal(u)
-// 	fmt.Println(js)
-// }
 
 func InfoAboutdb() string { //получаем инфо о пользователе, пароле, и название db
 
@@ -88,7 +98,7 @@ func ShowDb() {
 	users := []User{}
 	for rows.Next() {
 		u := User{}
-		err_scan := rows.Scan(&u.id, &u.icon, &u.first_name, &u.last_name, &u.middle_name, &u.login, &u.password, &u.status, &u.score, &u.keyInTime, &u.listIdOfTourment, &u.invites)
+		err_scan := rows.Scan(&u.Id, &u.Icon, &u.First_name, &u.Last_name, &u.Middle_name, &u.Login, &u.Password, &u.Status, &u.Score, &u.KeyInTime, &u.ListIdOfTourment, &u.Invites)
 		if err_scan != nil {
 			fmt.Println(err_scan)
 			continue
@@ -96,7 +106,7 @@ func ShowDb() {
 		users = append(users, u)
 	}
 	for i := range users {
-		fmt.Println("id = ", users[i].id, "FirstName:", users[i].first_name, "LastName:", users[i].last_name)
+		fmt.Println("id = ", users[i].Id, "FirstName:", users[i].First_name, "LastName:", users[i].Last_name)
 	}
 
 }
@@ -115,7 +125,7 @@ func FindMaxId() int { // Поиск максимального id в бд, ну
 	var u int
 	err := maxID.Scan(&u)
 	if err != nil {
-		panic(err)
+		return 1234
 	}
 	//fmt.Println(u)
 	return u
@@ -123,20 +133,187 @@ func FindMaxId() int { // Поиск максимального id в бд, ну
 func FindUser(id int) User { // пооиск пользователя по id
 	result := db.QueryRow("SELECT *FROM users.users_second WHERE id=?", id)
 	u := User{}
-	err := result.Scan(&u.id, &u.icon, &u.first_name, &u.last_name, &u.middle_name, &u.login, &u.password, &u.status, &u.score, &u.keyInTime, &u.listIdOfTourment, &u.invites)
+	err := result.Scan(&u.Id, &u.Icon, &u.First_name, &u.Last_name, &u.Middle_name, &u.Login, &u.Password, &u.Status, &u.KeyInTime, &u.Score, &u.ListIdOfTourment, &u.Invites)
 	if err != nil {
-		log.Panic(err)
+		log.Panic(err, "FindUser")
 	}
-	fmt.Println(u.first_name, u.last_name)
+	//fmt.Println(u.First_name, u.Last_name)
 	return u
 }
-func FindUserFNLN(first_name string, last_name string) int {
-	result := db.QueryRow("SELECT *FROM Users.Users_second WHERE first_name=? and last_name=?", first_name, last_name)
+
+func FindUserFNLN(login string, password string) int {
+	result := db.QueryRow("SELECT *FROM Users.Users_second WHERE Login=? and Password=?", login, password)
 	u := User{}
-	err := result.Scan(&u.id, &u.first_name, &u.last_name, &u.status)
+	err := result.Scan(&u.Id, &u.Icon, &u.First_name, &u.Last_name, &u.Middle_name, &u.Login, &u.Password, &u.Status, &u.KeyInTime, &u.Score, &u.ListIdOfTourment, &u.Invites)
+	if err != nil {
+		return 0 //Если возвращаетс 0 то пользователь с таким логином и паролем не найден
+	}
+	//fmt.Println(u.Id)
+	return u.Id // если вернулось число больше 1236 то пользовательский id найден
+}
+
+func AddDbTourment(name string, data string, minRating int, fullName string) { // Добавляем в базу данных запись о пользователе, используется только при регистрации нового пользователя
+
+	//id - должен быть уникален
+	//пароль может быть не уникален
+
+	var (
+		id            = FindMaxIdInTourment() + 1 //максимальный id в базе +1
+		listOfMembers = ""
+	)
+
+	result, err := db.Exec("INSERT INTO users.TourmentsTable (Id,ListOfMembers,Name ,Date ,MinRating ,FullName, Result) VALUES (?,?,?,?,?,?,?)", id, listOfMembers, name, data, minRating, fullName, "")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("download record: ", result.LastInsertId)
+}
+func FindMaxIdInTourment() int { // Поиск максимального id в бд, нужна тобы id был всегда уникальным
+	maxID := db.QueryRow("SELECT MAX(ID) FROM TourmentsTable")
+	var u int
+	err := maxID.Scan(&u)
+	if err != nil {
+		return 1234
+	}
+	//fmt.Println(u)
+	return u
+}
+func AddUserInTourment(userId int, tourmentId int) string {
+	result := db.QueryRow("SELECT *FROM users.TourmentsTable WHERE ID=?", tourmentId)
+	resultUser := db.QueryRow("SELECT *FROM users.Users_second WHERE ID=?", userId)
+	tourment := Tourments{}
+	err := result.Scan(&tourment.ID, &tourment.ListOfMembers, &tourment.Name, &tourment.Date, &tourment.MinRating, &tourment.FullName, &tourment.Result)
+	if err != nil {
+		log.Panic(err, "This id is not found...")
+		return "This id is not found..."
+	}
+	u := User{}
+	err1 := resultUser.Scan(&u.Id, &u.Icon, &u.First_name, &u.Last_name, &u.Middle_name, &u.Login, &u.Password, &u.Status, &u.KeyInTime, &u.Score, &u.ListIdOfTourment, &u.Invites)
+	if err1 != nil {
+		log.Panic(err1, "This id is not found...")
+		return "This id is not found..."
+	}
+	listUser := u.ListIdOfTourment
+	list := tourment.ListOfMembers
+	if listUser == "" {
+		listUser = strconv.Itoa(tourmentId)
+		_, err = db.Exec("UPDATE users.Users_second set ListIdOfTourment=? WHERE ID=?", listUser, userId)
+	} else {
+		str := strings.Split(listUser, ",")
+		for _, value := range str {
+			if value == strconv.Itoa(tourmentId) {
+				return "This user is participate !"
+			}
+		}
+		listUser += "," + strconv.Itoa(tourmentId)
+		_, err = db.Exec("UPDATE users.Users_second set ListIdOfTourment=? WHERE ID=?", listUser, userId)
+
+	}
+	if list == "" {
+		list = strconv.Itoa(userId)
+		_, err = db.Exec("UPDATE users.TourmentsTable set ListOfMembers=? WHERE ID=?", list, tourmentId)
+		return "list is empty"
+	}
+	list += "," + strconv.Itoa(userId)
+	_, err = db.Exec("UPDATE users.TourmentsTable set ListOfMembers=? WHERE ID=?", list, tourmentId)
+	return list
+}
+func getAllMembersTourment(tourmentId int) []string {
+	result := db.QueryRow("SELECT *FROM users.TourmentsTable WHERE ID=?", tourmentId)
+	tourment := Tourments{}
+	err := result.Scan(&tourment.ID, &tourment.ListOfMembers, &tourment.Name, &tourment.Date, &tourment.MinRating, &tourment.FullName, &tourment.Result)
 	if err != nil {
 		log.Panic(err)
 	}
-	fmt.Println(u.id)
-	return u.id
+	str := strings.Split(tourment.ListOfMembers, ",")
+	return str
 }
+
+// func ChangeStr(str string) []string{
+// 	str = strings.Split()
+// }
+func DeleteUserFromTourment(userId int, tourmentId int) string {
+	result := db.QueryRow("SELECT *FROM users.TourmentsTable WHERE ID=?", tourmentId)
+	resultUser := db.QueryRow("SELECT *FROM users.Users_second WHERE ID=?", userId)
+	tourment := Tourments{}
+	err := result.Scan(&tourment.ID, &tourment.ListOfMembers, &tourment.Name, &tourment.Date, &tourment.MinRating, &tourment.FullName, &tourment.Result)
+	if err != nil {
+		log.Panic(err, "This id is not found...")
+		return "This id is not found..."
+	}
+	u := User{}
+	err1 := resultUser.Scan(&u.Id, &u.Icon, &u.First_name, &u.Last_name, &u.Middle_name, &u.Login, &u.Password, &u.Status, &u.KeyInTime, &u.Score, &u.ListIdOfTourment, &u.Invites)
+	if err1 != nil {
+		log.Panic(err1, "This id is not found...")
+		return "This id is not found..."
+	}
+	listMembers := tourment.ListOfMembers
+	if listMembers == "" {
+		return "list of members is empty!"
+	} else {
+		str := strings.Split(listMembers, ",")
+		for i, value := range str {
+			if value == strconv.Itoa(userId) {
+				str = append(str[:i], str[i+1:]...)
+			}
+		}
+		var updateListMembers string
+		for _, value := range str {
+			if updateListMembers != "" {
+				updateListMembers += "," + value
+			} else {
+				updateListMembers += value
+			}
+		}
+		_, err = db.Exec("UPDATE users.TourmentsTable set ListOfMembers=? WHERE ID=?", updateListMembers, tourmentId)
+	}
+	listTourments := u.ListIdOfTourment
+	str1 := strings.Split(listTourments, ",")
+	for i, value := range str1 {
+		if value == strconv.Itoa(tourmentId) {
+			str1 = append(str1[:i], str1[i+1:]...)
+		}
+	}
+	var updateListTourments string
+	for _, value := range str1 {
+		if updateListTourments != "" {
+			updateListTourments += "," + value
+		} else {
+			updateListTourments += value
+		}
+	}
+	_, err = db.Exec("UPDATE users.users_second set ListIdOfTourment=? WHERE ID=?", updateListTourments, userId)
+	return "Success !"
+}
+func ChangeInfoInUser(id int, firstName string, icon int, lastName string, middleName string, login string, password string, status string) {
+	_, _ = db.Exec("UPDATE users.users_second set Icon=?, FirstName=?, LastName=?, MiddleName=?, Login=?, Password=?, Status=? WHERE ID=?", icon, firstName, lastName, middleName, login, password, status, id)
+}
+func ChangeInfoInTorument(id int, name string, data string, minRating int, fullName string) {
+	_, _ = db.Exec("UPDATE users.TourmentsTable set Name=?, Date=?, MinRating=?, FullName=? WHERE ID=?", name, data, minRating, fullName, id)
+}
+func DeleteTourments(id int) {
+	_, err := db.Exec("DELETE FROM users.TourmentsTable WHERE ID=?", id)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+func Help() map[string]interface{} {
+	HelpList := make(map[string]interface{})
+	HelpList["addDb"] = "firstName string, lastName string, middleName string, login string, password string, status int"
+	HelpList["deleteDb"] = "id int"
+	HelpList["getinfo"] = "id int"
+	HelpList["auntification"] = "login string, password string"
+	HelpList["addDbTourment"] = "name string, date string, fullname string"
+	HelpList["addUsersInTourment"] = "idUser int, idTourment int"
+	HelpList["getAllMembersTourment"] = "tourmentID int"
+	HelpList["deleteUserFromTourment"] = "idUser int, idTourment int"
+	HelpList["changeInfoInUser"] = "id int, firstName string, icon int, lastName string, middleName string, login string, password string, status string"
+	return HelpList
+}
+
+//Func for db:
+//SELECT * from TourmentsTable;
+// SELECT * from users_second;
+//describe users_second;
+//describe users_second
